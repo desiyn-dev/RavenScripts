@@ -7,7 +7,6 @@ private int background;
 private static final int white = 0xFFFFFFFF;
 private static final int gray = 0xFFB4B4B4;
 private int ping = 100;
-private int[] size = client.getDisplaySize();
 
 /* Game */
 void onLoad() {
@@ -20,7 +19,7 @@ void onRenderTick(float partialTicks) {
     if (!updatePlayerState()) return;
     updateColors();
     background = getBackgroundColor();
-    size = client.getDisplaySize();
+    int[] size = client.getDisplaySize();
     
     renderWatermark(size);
 
