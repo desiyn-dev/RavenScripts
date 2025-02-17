@@ -1,5 +1,5 @@
 // List of modules to display
-String[] moduleNames = {
+static final String[] moduleNames = {
     "KillAura", 
     "Bhop", 
     "KeepSprint", 
@@ -8,4 +8,4 @@ String[] moduleNames = {
     "BedAura"
 };
 
-load - "https://raw.githubusercontent.com/desiyn-dev/RavenScripts/refs/heads/main/ModuleList.java"
+load - "https://raw.githubusercontent.com/desiyn-dev/RavenScripts/refs/heads/main/load/ModuleList.java"
