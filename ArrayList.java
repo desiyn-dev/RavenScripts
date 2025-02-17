@@ -1,9 +1,3 @@
-load - "https://raw.githubusercontent.com/desiyn-dev/RavenScripts/refs/heads/main/ColorHandler.java"
-
-private static final List<String> EXCLUDED_MODULES = Arrays.asList(
-    "ArrayList", "ModuleList", "BetterHUD", "AlertsBackend"
-);
-
 private final List<Map<String, Object>> mods = new ArrayList<>();
 private final Map<String, Map<String, String>> customModuleData = new HashMap<>();
 private final List<Map<String, Object>> customDataList = new ArrayList<>();
