@@ -7,12 +7,16 @@ private int background;
 private static final int white = 0xFFFFFFFF;
 private static final int gray = 0xFFB4B4B4;
 private int ping = 100;
+private String DEFAULT_BUILD_USER;
+private String DEFAULT_BUILD_NUMBER;
 
 /* Game */
 void onLoad() {
     initializeMaps();
     initializePlayer();
     registerModules();
+    DEFAULT_BUILD_USER = client.getUser();
+    DEFAULT_BUILD_NUMBER = String.valueOf(client.getUID());
 }
 
 void onRenderTick(float partialTicks) {
@@ -176,8 +180,8 @@ void renderCSGOWithExtraInfo(String watermarkname, String selectedBuildVersion) 
         .append("ms")
         .toString();
     
-    // Static parts
-    csgoTextParts[1] = BUILD_USER;
+    // Use default build user if BUILD_USER is null
+    csgoTextParts[1] = BUILD_USER != null ? BUILD_USER : DEFAULT_BUILD_USER;
     csgoTextParts[3] = "version: 1.8.9";
     
     float totalWidth = calculateTotalWidth(csgoTextParts);
@@ -294,8 +298,11 @@ void renderRightSideInfo(float rightX, float baseY, float lineHeight, Entity pla
 
 void renderBuildInfo(float rightX, float baseY) {
     String selectedBuildVersion = getSelectedBuildVersion();
+    String buildUser = BUILD_USER != null ? BUILD_USER : DEFAULT_BUILD_USER;
+    String buildNumber = BUILD_NUMBER != null ? BUILD_NUMBER : DEFAULT_BUILD_NUMBER;
+    
     String fullText = util.color("&7" + selectedBuildVersion + " - &r" + 
-                                BUILD_NUMBER + " &7- " + BUILD_USER);
+                                buildNumber + " &7- " + buildUser);
     
     float textWidth = render.getFontWidth(fullText);
     render.text(fullText, rightX - textWidth, baseY, 1f, white, true);
