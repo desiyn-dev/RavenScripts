@@ -1,13 +1,3 @@
-// List of modules to display
-String[] moduleNames = {
-    "KillAura", 
-    "Bhop", 
-    "KeepSprint", 
-    "AntiKnockback", 
-    "NoSlow",
-    "BedAura"
-};
-
 void onLoad() {
     modules.registerSlider("X", "", 10.0, 5.0, client.getDisplaySize()[0], 5.0);
     modules.registerSlider("Y", "", 240.0, 5.0, client.getDisplaySize()[1], 5.0);
