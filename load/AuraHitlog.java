@@ -1,5 +1,8 @@
 void onLoad() {
     modules.registerDescription("by @desiyn");
+    modules.registerDescription("> TargetStrafe Settings");
+    modules.registerButton("On SPACE key", false);
+    modules.registerButton("Require Bhop module", false);
 }
 
 // Enemy tracking
@@ -22,11 +25,25 @@ int hurttimecounter = 0;
 Entity self;
 
 void onPreUpdate() {
+    // Get current entities
     enemy = modules.getKillAuraTarget();
     self = client.getPlayer();
     if (self == null) return;
 
+    // Handle TargetStrafe toggle based on settings
+    boolean requireBhop = modules.getButton("AuraHitlog", "Require Bhop module");
+    
+    if (!modules.isEnabled("KillAura") || 
+        !keybinds.isKeyDown(57) ||  // Always require space key
+        (requireBhop && !modules.isEnabled("Bhop"))) {
+        modules.disable("TargetStrafe");
+    } else if (enemy != null) {
+        modules.enable("TargetStrafe");
+    }
+
+    // Process enemy data
     if (enemy != null) {
+        // Update enemy info
         enemyName = enemy.getDisplayName();
     } else {
         // Handle enemy death/disappearance
@@ -35,9 +52,12 @@ void onPreUpdate() {
             enemykilledsent = 1;
         }
         
+        // Reset tracking
         auratargetcheck = 0;
         auratargetsent = 0;
     }
+
+    // Call processCombat to handle combat logging
     processCombat();
 }
 
