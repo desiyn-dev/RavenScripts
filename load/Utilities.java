@@ -84,12 +84,12 @@ void registerModules() {
     modules.registerDescription("> KillAura");
     modules.registerButton("Enable Aura Hitlog", true);
     
-    modules.registerDescription("by @desiyn");
-    
     modules.registerDescription("> Module Alerts");
     modules.registerButton("Enable Alerts", true);
     modules.registerButton("Play Sounds", false);
     modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
+
+    modules.registerDescription("by @desiyn");
 }
 
 /* Event Handlers */
