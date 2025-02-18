@@ -1,3 +1,5 @@
+static final String ALERT_QUEUE_KEY = "clientAlertQueue";
+
 /* Constants */
 // Alert dimensions
 static final float ALERT_WIDTH = 250;
@@ -53,6 +55,7 @@ void onLoad() {
     initializeState();
     registerModules();
     loadResources();
+    bridge.add("Client.ALERT_QUEUE_KEY", ALERT_QUEUE_KEY);
 }
 
 void initializeState() {
@@ -242,10 +245,19 @@ void processClickState() {
 
 void processAlerts() {
     @SuppressWarnings("unchecked")
-    Map<String, Object> alert = (Map<String, Object>) bridge.get("clientAlert");
-    if (alert != null) {
+    List<Map<String, Object>> queue = (List<Map<String, Object>>) bridge.get(ALERT_QUEUE_KEY);
+    if (queue != null && !queue.isEmpty()) {
+        for (Map<String, Object> alert : queue) {
+            processNewAlert(alert);
+        }
+        bridge.remove(ALERT_QUEUE_KEY);
+    }
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> singleAlert = (Map<String, Object>) bridge.get("clientAlert");
+    if (singleAlert != null) {
         bridge.remove("clientAlert");
-        processNewAlert(alert);
+        processNewAlert(singleAlert);
     }
 
     processExistingAlerts();
@@ -260,9 +272,8 @@ void processNewAlert(Map<String, Object> alert) {
         String command = (String) alert.getOrDefault("command", "");
         int type = (int) alert.getOrDefault("type", ALERT_TYPE_DEFAULT);
         
-        // Remove the auto-bold formatting, just color the title if it doesn't have formatting
         if (!title.startsWith("&")) {
-            title = "&f" + title; // Default to white if no color specified
+            title = "&f" + title; 
         }
         title = util.color(title);
         
@@ -440,8 +451,8 @@ float[] calculateAlertPositions(float progress, float offsetY, float maxSlideOff
 float getAlertHeight() {
     float scaledFontHeight = render.getFontHeight() * scale;
     float scaledPadding = DEFAULT_PADDING * scale;
-    float contentHeight = (scaledFontHeight * 2) + (scaledPadding * 3); // Two lines of text with padding between
-    return contentHeight + (scaledPadding * 2); // Add padding for top and bottom edges
+    float contentHeight = (scaledFontHeight * 2) + (scaledPadding * 3);
+    return contentHeight + (scaledPadding * 2);
 }
 
 void renderAlertBackground(Map<String, Object> alertData, float currentX, float currentY) {
@@ -465,18 +476,15 @@ void renderAlertBackground(Map<String, Object> alertData, float currentX, float 
 void renderAlertContent(Map<String, Object> alertData, float currentX, float currentY, long now) {
     float scaledPadding = DEFAULT_PADDING * scale;
     float scaledFontHeight = render.getFontHeight() * scale;
+    float textY = currentY + (scaledPadding * 1.5f);
     
-    // Start text position with more padding from top
-    float textY = currentY + (scaledPadding * 1.5f); // Match AlertsBackend padding
-    
-    // Render icon if needed
+    // Render icon
     float textX = currentX + scaledPadding;
     int type = (int) alertData.getOrDefault("type", ALERT_TYPE_DEFAULT);
     if (type != ALERT_TYPE_DEFAULT) {
         textX = renderAlertIcon(alertData, currentX, currentY, textY);
     }
 
-    // Render text with proper spacing
     render.text((String)alertData.get("title"), 
                textX, textY, 
                scale, TEXT_COLOR, true);
@@ -484,7 +492,6 @@ void renderAlertContent(Map<String, Object> alertData, float currentX, float cur
                textX, textY + scaledFontHeight + scaledPadding,
                scale, -1, true);
 
-    // Render progress bar
     renderProgressBar(alertData, currentX, currentY);
 }
 
@@ -492,8 +499,6 @@ float renderAlertIcon(Map<String, Object> alertData, float currentX, float curre
     float scaledPadding = DEFAULT_PADDING * scale;
     float iconSize = ICON_SIZE * scale;
     float textX = currentX + scaledPadding + iconSize + (ICON_PADDING * scale);
-    
-    // Align icon with the text
     float textHeight = (render.getFontHeight() * scale * 2) + (DEFAULT_PADDING * scale);
     float iconY = textY + (textHeight - iconSize) / 2;
     

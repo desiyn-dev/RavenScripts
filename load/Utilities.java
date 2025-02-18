@@ -1,3 +1,6 @@
+// Alert queue key
+static String ALERT_QUEUE_KEY;
+
 // Render state
 static final int RENDER_SECONDS = 0;
 static final int RENDER_PROGRESS = 1;
@@ -32,8 +35,23 @@ boolean wasBhopEnabled = false;
 boolean shouldReEnable = false;
 int disableDuration = 3000; // Default 3 seconds
 
+// Module alerts
+List<String> enabledModules = new ArrayList<>();
+boolean playSounds = false;
+int alertDelay = 3000;
+
 /* Initialization */
 void onLoad() {
+    if (!modules.isEnabled("Client")) {
+        modules.enable("Client");
+    }
+    
+    ALERT_QUEUE_KEY = (String) bridge.get("Client.ALERT_QUEUE_KEY");
+    if (ALERT_QUEUE_KEY == null) {
+        client.print("&cError: Alert system not initialized properly");
+        return;
+    }
+    
     initializeDisplaySettings();
     registerModules();
 }
@@ -67,11 +85,17 @@ void registerModules() {
     modules.registerButton("Enable Aura Hitlog", true);
     
     modules.registerDescription("by @desiyn");
+    
+    modules.registerDescription("> Module Alerts");
+    modules.registerButton("Enable Alerts", true);
+    modules.registerButton("Play Sounds", false);
+    modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
 }
 
 /* Event Handlers */
 void onPreUpdate() {
     updateColors();
+    handleModuleAlerts();
     handleTargetStrafe();
     handleCombat();
 }
@@ -339,4 +363,51 @@ void sendLagbackMessage(String message) {
     if (modules.getButton(scriptName, "Show Chat Notification")) {
         client.print("&7[&dR&7] " + message);
     }
+}
+
+void handleModuleAlerts() {
+    if (!modules.getButton(scriptName, "Enable Alerts")) return;
+    if (!modules.isEnabled("Client")) {
+        modules.enable("Client");
+    }
+    
+    playSounds = modules.getButton(scriptName, "Play Sounds");
+    alertDelay = (int)(modules.getSlider(scriptName, "Alert Duration") * 1000);
+    
+    if (!bridge.has("clientAlert")) {
+        checkModuleStates();
+    }
+}
+
+void checkModuleStates() {
+    for (String moduleName : TRACKED_MODULES) {
+        boolean isEnabled = modules.isEnabled(moduleName);
+        boolean wasEnabled = enabledModules.contains(moduleName);
+        
+        if (isEnabled && !wasEnabled) {
+            enabledModules.add(moduleName);
+            if (playSounds) client.ping();
+            sendModuleAlert("Module Enabled", moduleName, true);
+        } else if (!isEnabled && wasEnabled) {
+            enabledModules.remove(moduleName);
+            if (playSounds) client.ping();
+            sendModuleAlert("Module Disabled", moduleName, false);
+        }
+    }
+}
+
+void sendModuleAlert(String title, String message, boolean enabled) {
+    Map<String, Object> alert = new HashMap<>();
+    alert.put("title", title);
+    alert.put("message", message);
+    alert.put("duration", alertDelay);
+    alert.put("type", enabled ? 2 : 3);
+
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> queue = (List<Map<String, Object>>) bridge.get(ALERT_QUEUE_KEY);
+    if (queue == null) {
+        queue = new ArrayList<>();
+    }
+    queue.add(alert);
+    bridge.add(ALERT_QUEUE_KEY, queue);
 } 
