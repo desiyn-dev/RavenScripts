@@ -175,7 +175,6 @@ int getCurrentColor(long index, int alertType) {
         }
     }
     
-    // Use theme colors if alert colors are disabled or for default type
     switch(colorMode) {
         case 1: // Rainbow
             return getRainbow(waveSpeed, 1f, 1f, index);
@@ -204,9 +203,11 @@ void renderColorPreviews() {
                       screenWidth / 2 - 10, rectY + rectSize, 
                       10, staticColor.getRGB());
 
-    render.roundedRect(screenWidth / 2 + 10, rectY,
-                      screenWidth / 2 + rectSize + 10, rectY + rectSize,
-                      10, endColor.getRGB());
+    if (colorMode == 2 && endColor != null) {
+        render.roundedRect(screenWidth / 2 + 10, rectY,
+                          screenWidth / 2 + rectSize + 10, rectY + rectSize,
+                          10, endColor.getRGB());
+    }
 }
 
 /* Alert State Management */
