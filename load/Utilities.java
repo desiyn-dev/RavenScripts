@@ -14,9 +14,6 @@ static final float[] renderData = new float[4];
 static final Map<String, Object> renderInfo = new HashMap<>();
 
 // State
-Color startColor, endColor, staticColor;
-int colorMode;
-float waveSpeed;
 float padding = 4;
 float barHeight = 2;
 float displayX, displayY;
