@@ -299,7 +299,6 @@ void handleLagback() {
 }
 
 boolean shouldPlayLagbackSound() {
-    // Don't play sound if module alerts are handling Bhop
     boolean moduleAlertsHandling = modules.getButton(scriptName, "Enable Alerts") && // Module alerts enabled
                                   playSounds &&                                      // Module alert sounds enabled
                                   Arrays.asList(TRACKED_MODULES).contains("Bhop");   // Bhop is in tracked list
@@ -313,18 +312,15 @@ void disableBhopOnLagback() {
     modules.disable("Bhop");
     updateLagbackState();
     
-    // Detailed message for chat
     if (modules.getButton(scriptName, "Show Chat Notification")) {
         client.print(CHAT_PREFIX + "&cLagback detected! Disabling Bhop for " + 
                     String.format("%.1f", disableDuration/1000f) + " seconds.");
     }
     
-    // Only play sound if module alerts aren't handling it
     if (shouldPlayLagbackSound()) {
         client.ping();
     }
     
-    // Simpler alert notification
     if (modules.getButton(scriptName, "Show Lagback Alerts")) {
         Map<String, Object> alert = new HashMap<>();
         alert.put("title", ALERT_TITLE_LAGBACK);
@@ -338,17 +334,14 @@ void disableBhopOnLagback() {
 void extendLagbackTimer() {
     lastLagbackTime = client.time();
     
-    // Detailed message for chat
     if (modules.getButton(scriptName, "Show Chat Notification")) {
         client.print(CHAT_PREFIX + "&cLagback detected during cooldown! Timer extended.");
     }
     
-    // Always play sound for timer extension
     if (modules.getButton(scriptName, "Play Lagback Sounds")) {
         client.ping();
     }
     
-    // Simpler alert notification
     if (modules.getButton(scriptName, "Show Lagback Alerts")) {
         Map<String, Object> alert = new HashMap<>();
         alert.put("title", ALERT_TITLE_LAGBACK);
@@ -368,17 +361,14 @@ void handleLagbackCooldownComplete() {
     if (!modules.isEnabled("Bhop")) {
         modules.enable("Bhop");
         
-        // Detailed message for chat
         if (modules.getButton(scriptName, "Show Chat Notification")) {
             client.print(CHAT_PREFIX + "&aRe-enabling Bhop after cooldown.");
         }
         
-        // Only play sound if module alerts aren't handling it
         if (shouldPlayLagbackSound()) {
             client.ping();
         }
         
-        // Simpler alert notification
         if (modules.getButton(scriptName, "Show Lagback Alerts")) {
             Map<String, Object> alert = new HashMap<>();
             alert.put("title", ALERT_TITLE_LAGBACK);
@@ -498,7 +488,6 @@ void sendBatchedAlerts() {
         pendingDisables.clear();
     }
     
-    // Play sound once for all changes
     if (shouldPlaySound) {
         client.ping();
     }
@@ -520,7 +509,6 @@ void sendModuleAlert(String title, String message, boolean enabled) {
     bridge.add(ALERT_QUEUE_KEY, queue);
 }
 
-// Add after onLoad()
 void initializeQueueCommands() {
     addCommand(new String[]{"/1s"}, "bedwars_eight_one");
     addCommand(new String[]{"/2s"}, "bedwars_eight_two");
@@ -544,7 +532,6 @@ void addCommand(String[] aliases, String gameId) {
     }
 }
 
-// Add to onPacketSent handler
 boolean onPacketSent(CPacket packet) {
     if (!modules.getButton(scriptName, "Enable Queue Commands")) return true;
     
