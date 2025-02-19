@@ -1,7 +1,11 @@
-// Alert queue key
+// Alert system
 static String ALERT_QUEUE_KEY;
+static final String ALERT_TITLE_MODULES = "Module Alerts";
+static final String ALERT_TITLE_QUEUE = "Queue Commands";
+static final String ALERT_TITLE_LAGBACK = "Lagback Protection";
+static final String CHAT_PREFIX = "&7[&dR&7] ";
 
-// Render state
+// Render data
 static final int RENDER_SECONDS = 0;
 static final int RENDER_PROGRESS = 1;
 static final int RENDER_WIDTH = 2;
@@ -9,7 +13,10 @@ static final int RENDER_HEIGHT = 3;
 static final float[] renderData = new float[4];
 static final Map<String, Object> renderInfo = new HashMap<>();
 
-// Display settings
+// State
+Color startColor, endColor, staticColor;
+int colorMode;
+float waveSpeed;
 float padding = 4;
 float barHeight = 2;
 float displayX, displayY;
@@ -29,16 +36,25 @@ int killMessageSent = 1;
 int missCheckCounter = 0;
 int hurtTimeCounter = 0;
 
-// Lagback state
+// Lagback handling
 long lastLagbackTime = 0;
 boolean wasBhopEnabled = false;
 boolean shouldReEnable = false;
-int disableDuration = 3000; // Default 3 seconds
+int disableDuration = 3000;
 
 // Module alerts
 List<String> enabledModules = new ArrayList<>();
+List<String> pendingEnables = new ArrayList<>();
+List<String> pendingDisables = new ArrayList<>();
+long lastModuleChange = 0;
+static final long BATCH_DELAY = 50;
 boolean playSounds = false;
 int alertDelay = 3000;
+
+// Queue system
+static final Map<String, String> QUEUE_COMMANDS = new HashMap<>();
+static final Map<String, String> GAME_NAMES = new HashMap<>();
+String lastQueuedGame = "";
 
 /* Initialization */
 void onLoad() {
@@ -53,6 +69,7 @@ void onLoad() {
     }
     
     initializeDisplaySettings();
+    initializeQueueCommands();
     registerModules();
 }
 
@@ -78,6 +95,8 @@ void registerModules() {
     modules.registerSlider("Disable duration", "s", 3, 1, 10, 0.5);
     modules.registerButton("Show HUD Notification", true);
     modules.registerButton("Show Chat Notification", true);
+    modules.registerButton("Show Lagback Alerts", true);
+    modules.registerButton("Play Lagback Sounds", false);
     modules.registerSlider("Display X", "", displayX, 0, client.getDisplaySize()[0], 1);
     modules.registerSlider("Display Y", "", displayY, 0, client.getDisplaySize()[1], 1);
     
@@ -88,6 +107,10 @@ void registerModules() {
     modules.registerButton("Enable Alerts", true);
     modules.registerButton("Play Sounds", false);
     modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
+
+    modules.registerDescription("> Other");
+    modules.registerButton("Enable Queue Commands", true);
+    modules.registerButton("Show Queue Alerts", true);
 
     modules.registerDescription("by @desiyn");
 }
@@ -278,18 +301,65 @@ void handleLagback() {
     }
 }
 
+boolean shouldPlayLagbackSound() {
+    // Don't play sound if module alerts are handling Bhop
+    boolean moduleAlertsHandling = modules.getButton(scriptName, "Enable Alerts") && // Module alerts enabled
+                                  playSounds &&                                      // Module alert sounds enabled
+                                  Arrays.asList(TRACKED_MODULES).contains("Bhop");   // Bhop is in tracked list
+                                   
+    return modules.getButton(scriptName, "Play Lagback Sounds") && !moduleAlertsHandling;
+}
+
 void disableBhopOnLagback() {
     wasBhopEnabled = true;
     shouldReEnable = true;
     modules.disable("Bhop");
     updateLagbackState();
-    sendLagbackMessage("&cLagback detected! Disabling Bhop for " + 
-                      String.format("%.1f", disableDuration/1000f) + " seconds");
+    
+    // Detailed message for chat
+    if (modules.getButton(scriptName, "Show Chat Notification")) {
+        client.print(CHAT_PREFIX + "&cLagback detected! Disabling Bhop for " + 
+                    String.format("%.1f", disableDuration/1000f) + " seconds.");
+    }
+    
+    // Only play sound if module alerts aren't handling it
+    if (shouldPlayLagbackSound()) {
+        client.ping();
+    }
+    
+    // Simpler alert notification
+    if (modules.getButton(scriptName, "Show Lagback Alerts")) {
+        Map<String, Object> alert = new HashMap<>();
+        alert.put("title", ALERT_TITLE_LAGBACK);
+        alert.put("message", "Disabled Bhop for " + String.format("%.1f", disableDuration/1000f) + "s");
+        alert.put("duration", 3000);
+        alert.put("type", 1);
+        bridge.add("clientAlert", alert);
+    }
 }
 
 void extendLagbackTimer() {
     lastLagbackTime = client.time();
-    sendLagbackMessage("&cLagback detected during cooldown! Extending timer");
+    
+    // Detailed message for chat
+    if (modules.getButton(scriptName, "Show Chat Notification")) {
+        client.print(CHAT_PREFIX + "&cLagback detected during cooldown! Timer extended.");
+    }
+    
+    // Always play sound for timer extension
+    if (modules.getButton(scriptName, "Play Lagback Sounds")) {
+        client.ping();
+    }
+    
+    // Simpler alert notification
+    if (modules.getButton(scriptName, "Show Lagback Alerts")) {
+        Map<String, Object> alert = new HashMap<>();
+        alert.put("title", ALERT_TITLE_LAGBACK);
+        alert.put("message", "Extended cooldown timer");
+        alert.put("duration", 3000);
+        alert.put("type", 1);
+        bridge.add("clientAlert", alert);
+    }
 }
 
 void updateLagbackState() {
@@ -300,8 +370,25 @@ void updateLagbackState() {
 void handleLagbackCooldownComplete() {
     if (!modules.isEnabled("Bhop")) {
         modules.enable("Bhop");
+        
+        // Detailed message for chat
         if (modules.getButton(scriptName, "Show Chat Notification")) {
-            client.print("&7[&dR&7] &aRe-enabling Bhop after cooldown");
+            client.print(CHAT_PREFIX + "&aRe-enabling Bhop after cooldown.");
+        }
+        
+        // Only play sound if module alerts aren't handling it
+        if (shouldPlayLagbackSound()) {
+            client.ping();
+        }
+        
+        // Simpler alert notification
+        if (modules.getButton(scriptName, "Show Lagback Alerts")) {
+            Map<String, Object> alert = new HashMap<>();
+            alert.put("title", ALERT_TITLE_LAGBACK);
+            alert.put("message", "Re-enabled Bhop");
+            alert.put("duration", 3000);
+            alert.put("type", 2);
+            bridge.add("clientAlert", alert);
         }
     }
     resetLagbackState();
@@ -351,18 +438,12 @@ void resetCombatCounters() {
 void registerMiss() {
     missCheckCounter = 1;
     hurtTimeCounter = 0;
-    client.print("&7[&dR&7]&c Missed swing on " + lastTargetName + "&c due to &ccorrection.");
+    client.print(CHAT_PREFIX + "&cMissed swing on " + lastTargetName + " due to correction!");
 }
 
 void sendKillMessage() {
-    client.print("&7[&dR&7] " + lastTargetName + "&7 killed.");
+    client.print(CHAT_PREFIX + lastTargetName + " &7has been killed.");
     killMessageSent = 1;
-}
-
-void sendLagbackMessage(String message) {
-    if (modules.getButton(scriptName, "Show Chat Notification")) {
-        client.print("&7[&dR&7] " + message);
-    }
 }
 
 void handleModuleAlerts() {
@@ -380,19 +461,49 @@ void handleModuleAlerts() {
 }
 
 void checkModuleStates() {
+    long now = client.time();
+    
     for (String moduleName : TRACKED_MODULES) {
         boolean isEnabled = modules.isEnabled(moduleName);
         boolean wasEnabled = enabledModules.contains(moduleName);
         
         if (isEnabled && !wasEnabled) {
             enabledModules.add(moduleName);
-            if (playSounds) client.ping();
-            sendModuleAlert("Module Enabled", moduleName, true);
+            pendingEnables.add(moduleName);
+            lastModuleChange = now;
         } else if (!isEnabled && wasEnabled) {
             enabledModules.remove(moduleName);
-            if (playSounds) client.ping();
-            sendModuleAlert("Module Disabled", moduleName, false);
+            pendingDisables.add(moduleName);
+            lastModuleChange = now;
         }
+    }
+
+    if (!pendingEnables.isEmpty() || !pendingDisables.isEmpty()) {
+        if (now - lastModuleChange > BATCH_DELAY) {
+            sendBatchedAlerts();
+        }
+    }
+}
+
+void sendBatchedAlerts() {
+    boolean shouldPlaySound = playSounds && 
+                            (pendingEnables.size() + pendingDisables.size() > 0);
+    
+    if (!pendingEnables.isEmpty()) {
+        String modules = String.join(", ", pendingEnables);
+        sendModuleAlert(ALERT_TITLE_MODULES, "Enabled " + modules, true);
+        pendingEnables.clear();
+    }
+    
+    if (!pendingDisables.isEmpty()) {
+        String modules = String.join(", ", pendingDisables);
+        sendModuleAlert(ALERT_TITLE_MODULES, "Disabled " + modules, false);
+        pendingDisables.clear();
+    }
+    
+    // Play sound once for all changes
+    if (shouldPlaySound) {
+        client.ping();
     }
 }
 
@@ -410,4 +521,78 @@ void sendModuleAlert(String title, String message, boolean enabled) {
     }
     queue.add(alert);
     bridge.add(ALERT_QUEUE_KEY, queue);
-} 
+}
+
+// Add after onLoad()
+void initializeQueueCommands() {
+    addCommand(new String[]{"/1s"}, "bedwars_eight_one");
+    addCommand(new String[]{"/2s"}, "bedwars_eight_two");
+    addCommand(new String[]{"/3s"}, "bedwars_four_three");
+    addCommand(new String[]{"/4s"}, "bedwars_four_four");
+    addCommand(new String[]{"/4v4"}, "bedwars_two_four");
+    addCommand(new String[]{"/sbs", "/speedbuilders"}, "build_battle_speed_builders");
+    addCommand(new String[]{"/rq", "/requeue"}, "requeue");
+    
+    GAME_NAMES.put("bedwars_eight_one", "Solo Bedwars");
+    GAME_NAMES.put("bedwars_eight_two", "Doubles Bedwars");
+    GAME_NAMES.put("bedwars_four_three", "3v3v3v3 Bedwars");
+    GAME_NAMES.put("bedwars_four_four", "4v4v4v4 Bedwars");
+    GAME_NAMES.put("bedwars_two_four", "4v4 Bedwars");
+    GAME_NAMES.put("build_battle_speed_builders", "Speed Builders");
+}
+
+void addCommand(String[] aliases, String gameId) {
+    for (String alias : aliases) {
+        QUEUE_COMMANDS.put(alias.toLowerCase(), gameId.toLowerCase());
+    }
+}
+
+// Add to onPacketSent handler
+boolean onPacketSent(CPacket packet) {
+    if (!modules.getButton(scriptName, "Enable Queue Commands")) return true;
+    
+    if (packet instanceof C01) {
+        C01 c01 = (C01) packet;
+        String message = c01.message.toLowerCase().trim();
+        
+        String gameId = QUEUE_COMMANDS.get(message);
+        if (gameId != null) {
+            if (gameId.equals("requeue")) {
+                handleRequeue();
+            } else {
+                queueForGame(gameId);
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+void handleRequeue() {
+    if (lastQueuedGame.isEmpty()) {
+        if (modules.getButton(scriptName, "Show Queue Alerts")) {
+            sendQueueAlert(ALERT_TITLE_QUEUE, "No previous game to requeue!", 3);
+        }
+        return;
+    }
+    queueForGame(lastQueuedGame);
+}
+
+void queueForGame(String gameId) {
+    lastQueuedGame = gameId;
+    String gameName = GAME_NAMES.get(gameId);
+    
+    client.chat("/play " + gameId);
+    if (modules.getButton(scriptName, "Show Queue Alerts")) {
+        sendQueueAlert(ALERT_TITLE_QUEUE, "Joining " + (gameName != null ? gameName : gameId), 2);
+    }
+}
+
+void sendQueueAlert(String title, String message, int type) {
+    Map<String, Object> alert = new HashMap<>();
+    alert.put("title", title);
+    alert.put("message", message);
+    alert.put("duration", 3000);
+    alert.put("type", type);
+    bridge.add("clientAlert", alert);
+}
