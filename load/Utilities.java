@@ -622,7 +622,10 @@ boolean onPacketSent(CPacket packet) {
         C01 c01 = (C01) packet;
         String message = c01.message.toLowerCase().trim();
         
-        if (message.startsWith("/q ")) {
+        if (message.equals("/q")) {
+            showQueueHelp();
+            return false;
+        } else if (message.startsWith("/q ")) {
             String[] parts = message.split(" ");
             if (parts.length > 1) {
                 String command = parts[1].trim();
@@ -630,10 +633,9 @@ boolean onPacketSent(CPacket packet) {
                 if (gameId != null) {
                     queueForGame(gameId);
                 } else {
-                    if (modules.getButton(scriptName, "Show Queue Alerts")) {
-                        sendQueueAlert(ALERT_TITLE_QUEUE, "Error sending queue command for mode: &b" + command + "&r (&dInvalid&r)", 3);
-                        client.ping();
-                    }
+                    // Show help message instead of error alert for invalid commands
+                    client.print("&7[&dR&7] &cUnknown queue command. Available commands:");
+                    showQueueHelp();
                 }
                 return false;
             }
@@ -645,10 +647,22 @@ boolean onPacketSent(CPacket packet) {
     return true;
 }
 
+void showQueueHelp() {
+    client.print("&7[&dR&7] Queue Commands:");
+    client.print("&7- Bedwars: &f/q 1s&7, &f/q 2s&7, &f/q 3s&7, &f/q 4s&7, &f/q 4v4");
+    client.print("&7- Rush: &f/q 2r&7, &f/q 4r");
+    client.print("&7- Castle: &f/q c");
+    client.print("&7- Skywars: &f/q sn&7, &f/q si&7, &f/q tn&7, &f/q ti");
+    client.print("&7- Duels: &f/q cd&7, &f/q opd&7, &f/q uhcd&7, &f/q bd&7, &f/q bowd");
+    client.print("&7- Other: &f/q pit&7, &f/q uhc&7, &f/q tuhc&7, &f/q mm&7, &f/q ww&7, &f/q ctw&7, &f/q sbs");
+    client.print("&7- Requeue: &f/rq");
+}
+
 void handleRequeue() {
     if (lastQueuedGame.isEmpty()) {
         if (modules.getButton(scriptName, "Show Queue Alerts")) {
             sendQueueAlert(ALERT_TITLE_QUEUE, "No previous game to requeue!", 3);
+            client.print("&7[&dR&7] &cNo previous game to requeue! Use &f/q&c to see available commands.");
         }
         return;
     }
