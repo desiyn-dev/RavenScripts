@@ -483,7 +483,7 @@ void checkModuleStates() {
         if (category.equalsIgnoreCase("profiles")) continue;
         
         // Skip if category is not being tracked
-        if (!modules.getButton(scriptName, "Alert " + category + " Modules")) continue;
+        if (!modules.getButton(scriptName, "Alert " + category + " modules")) continue;
         
         List<String> modulesList = categories.get(category);
         for (String moduleName : modulesList) {
