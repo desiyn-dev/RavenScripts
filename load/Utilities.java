@@ -1,19 +1,15 @@
-// Alert system
+/* Render Data */
+static final Map<String, Object> renderInfo = new HashMap<>();
+
+/* Alert System */
 static String ALERT_QUEUE_KEY;
 static final String ALERT_TITLE_MODULES = "Module Alerts";
 static final String ALERT_TITLE_QUEUE = "Queue Commands";
 static final String ALERT_TITLE_LAGBACK = "Lagback Protection";
+static final String ALERT_TITLE_ANTICHEAT = "Hacker Detector";
 static final String CHAT_PREFIX = "&7[&dR&7] ";
 
-// Render data
-static final int RENDER_SECONDS = 0;
-static final int RENDER_PROGRESS = 1;
-static final int RENDER_WIDTH = 2;
-static final int RENDER_HEIGHT = 3;
-static final float[] renderData = new float[4];
-static final Map<String, Object> renderInfo = new HashMap<>();
-
-// State
+/* State */
 float padding = 4;
 float barHeight = 2;
 float displayX, displayY;
@@ -39,10 +35,11 @@ boolean wasBhopEnabled = false;
 boolean shouldReEnable = false;
 int disableDuration = 3000;
 
-// Module alerts
+// Module tracking
 List<String> enabledModules = new ArrayList<>();
 List<String> pendingEnables = new ArrayList<>();
 List<String> pendingDisables = new ArrayList<>();
+Map<String, Boolean> excludedCategories = new HashMap<>();
 long lastModuleChange = 0;
 static final long BATCH_DELAY = 50;
 boolean playSounds = false;
@@ -52,6 +49,8 @@ int alertDelay = 3000;
 static final Map<String, String> QUEUE_COMMANDS = new HashMap<>();
 static final Map<String, String> GAME_NAMES = new HashMap<>();
 String lastQueuedGame = "";
+
+static final String ANTICHEAT_FORMAT = "{entity} has been detected for {flag}.";
 
 /* Initialization */
 void onLoad() {
@@ -83,9 +82,24 @@ void initializeDisplaySettings() {
 }
 
 void registerModules() {
-    modules.registerDescription("> TargetStrafe");
-    modules.registerButton("On SPACE key", false);
-    modules.registerButton("Require Bhop", false);
+    modules.registerDescription("> Module Alerts");
+    modules.registerButton("Enable Module Alerts", true);
+    modules.registerButton("Play Alert Sounds", false);
+    modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
+    
+    // Add category tracking settings under Module Alerts
+    modules.registerDescription("Categories to Alert");
+    for (String category : modules.getCategories().keySet()) {
+        if (!category.equalsIgnoreCase("profiles")) {
+            excludedCategories.put(category, false);
+            modules.registerButton("Alert " + category + " modules", true);
+        }
+    }
+    
+    // Add anticheat alerts section
+    modules.registerDescription("> AntiCheat Alerts");
+    modules.registerButton("Enable AntiCheat Alerts", true);
+    modules.registerSlider("AC Alert Duration", "s", 5, 3, 10, 1);
     
     modules.registerDescription("> Bhop");
     modules.registerButton("Disable on lagback", true);
@@ -97,15 +111,14 @@ void registerModules() {
     modules.registerSlider("Display X", "", displayX, 0, client.getDisplaySize()[0], 1);
     modules.registerSlider("Display Y", "", displayY, 0, client.getDisplaySize()[1], 1);
     
+    modules.registerDescription("> TargetStrafe");
+    modules.registerButton("On SPACE key", false);
+    modules.registerButton("Require Bhop", false);
+    
     modules.registerDescription("> KillAura");
     modules.registerButton("Enable Aura Hitlog", true);
-    
-    modules.registerDescription("> Module Alerts");
-    modules.registerButton("Enable Alerts", true);
-    modules.registerButton("Play Sounds", false);
-    modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
 
-    modules.registerDescription("> Other");
+    modules.registerDescription("> Queue Commands");
     modules.registerButton("Enable Queue Commands", true);
     modules.registerButton("Show Queue Alerts", true);
 
@@ -147,44 +160,58 @@ boolean onPacketReceived(Object packet) {
 /* Rendering */
 void renderCountdown(long timeSinceLagback) {
     updateDisplayPosition();
-    calculateRenderData(timeSinceLagback);
+    
+    // Calculate render info
+    float seconds = (disableDuration - timeSinceLagback) / 1000f;
+    float progress = timeSinceLagback / (float)disableDuration;
+    String text = String.format("Bhop will be re-enabled in %.1fs", seconds);
+    float textWidth = render.getFontWidth(text);
+    float height = render.getFontHeight() + barHeight + (padding * 3);
+    float width = textWidth + (padding * 2);
+    
+    // Store in render info
+    renderInfo.put("text", text);
+    renderInfo.put("textWidth", textWidth);
+    renderInfo.put("progress", progress);
+    renderInfo.put("width", width);
+    renderInfo.put("height", height);
+    
+    // Render components
     renderBackground();
     renderText();
     renderProgressBar();
 }
 
-void calculateRenderData(long timeSinceLagback) {
-    renderData[RENDER_SECONDS] = (disableDuration - timeSinceLagback) / 1000f;
-    renderData[RENDER_PROGRESS] = timeSinceLagback / (float)disableDuration;
-    
-    renderInfo.put("text", String.format("Bhop will be re-enabled in %.1fs", renderData[RENDER_SECONDS]));
-    float textWidth = render.getFontWidth((String)renderInfo.get("text"));
-    renderInfo.put("textWidth", textWidth);
-    
-    renderData[RENDER_WIDTH] = textWidth + (padding * 2);
-    renderData[RENDER_HEIGHT] = render.getFontHeight() + barHeight + (padding * 3);
-}
-
 void renderBackground() {
+    float width = (float)renderInfo.get("width");
+    float height = (float)renderInfo.get("height");
+    
     render.rect(displayX, displayY, 
-               displayX + renderData[RENDER_WIDTH], 
-               displayY + renderData[RENDER_HEIGHT], 
+               displayX + width, 
+               displayY + height, 
                getBackgroundColor());
 }
 
 void renderText() {
+    String text = (String)renderInfo.get("text");
     float textX = displayX + padding;
     float textY = displayY + padding;
-    render.text((String)renderInfo.get("text"), 
-                textX, textY, 1, getCurrentColor(0), true);
+    
+    render.text(text, textX, textY, 1, getCurrentColor(0), true);
 }
 
 void renderProgressBar() {
+    float progress = (float)renderInfo.get("progress");
+    float textWidth = (float)renderInfo.get("textWidth");
+    float height = (float)renderInfo.get("height");
+    
     float textX = displayX + padding;
-    float barY = displayY + renderData[RENDER_HEIGHT] - barHeight - padding;
-    float barWidth = (float)renderInfo.get("textWidth") * (1 - renderData[RENDER_PROGRESS]);
+    float barY = displayY + height - barHeight - padding;
+    float barWidth = textWidth * (1 - progress);
+    
     render.rect(textX, barY,
-               textX + barWidth, barY + barHeight,
+               textX + barWidth, 
+               barY + barHeight,
                getCurrentColor(0));
 }
 
@@ -299,11 +326,12 @@ void handleLagback() {
 }
 
 boolean shouldPlayLagbackSound() {
-    boolean moduleAlertsHandling = modules.getButton(scriptName, "Enable Alerts") && // Module alerts enabled
-                                  playSounds &&                                      // Module alert sounds enabled
-                                  Arrays.asList(TRACKED_MODULES).contains("Bhop");   // Bhop is in tracked list
+    // If module alerts are enabled and sounds are enabled, don't play lagback sound
+    boolean moduleAlertsEnabled = modules.getButton(scriptName, "Enable Module Alerts") && 
+                                 modules.getButton(scriptName, "Play Alert Sounds") &&
+                                 modules.getButton(scriptName, "Alert Combat Modules"); // Assuming Bhop is in Combat category
                                    
-    return modules.getButton(scriptName, "Play Lagback Sounds") && !moduleAlertsHandling;
+    return modules.getButton(scriptName, "Play Lagback Sounds") && !moduleAlertsEnabled;
 }
 
 void disableBhopOnLagback() {
@@ -383,7 +411,7 @@ void handleLagbackCooldownComplete() {
 
 /* Utility Methods */
 boolean shouldProcessCombat() {
-    return modules.getButton(scriptName, "Show Aura Hitlog") && 
+    return modules.getButton(scriptName, "Enable Aura Hitlog") && 
            target != null && 
            player != null;
 }
@@ -434,12 +462,12 @@ void sendKillMessage() {
 }
 
 void handleModuleAlerts() {
-    if (!modules.getButton(scriptName, "Enable Alerts")) return;
+    if (!modules.getButton(scriptName, "Enable Module Alerts")) return;
     if (!modules.isEnabled("Client")) {
         modules.enable("Client");
     }
     
-    playSounds = modules.getButton(scriptName, "Play Sounds");
+    playSounds = modules.getButton(scriptName, "Play Alert Sounds");
     alertDelay = (int)(modules.getSlider(scriptName, "Alert Duration") * 1000);
     
     if (!bridge.has("clientAlert")) {
@@ -449,19 +477,30 @@ void handleModuleAlerts() {
 
 void checkModuleStates() {
     long now = client.time();
+    Map<String, List<String>> categories = modules.getCategories();
     
-    for (String moduleName : TRACKED_MODULES) {
-        boolean isEnabled = modules.isEnabled(moduleName);
-        boolean wasEnabled = enabledModules.contains(moduleName);
+    for (String category : categories.keySet()) {
+        if (category.equalsIgnoreCase("profiles")) continue;
         
-        if (isEnabled && !wasEnabled) {
-            enabledModules.add(moduleName);
-            pendingEnables.add(moduleName);
-            lastModuleChange = now;
-        } else if (!isEnabled && wasEnabled) {
-            enabledModules.remove(moduleName);
-            pendingDisables.add(moduleName);
-            lastModuleChange = now;
+        // Skip if category is not being tracked
+        if (!modules.getButton(scriptName, "Alert " + category + " Modules")) continue;
+        
+        List<String> modulesList = categories.get(category);
+        for (String moduleName : modulesList) {
+            if (EXCLUDED_MODULES.contains(moduleName)) continue;
+            
+            boolean isEnabled = modules.isEnabled(moduleName);
+            boolean wasEnabled = enabledModules.contains(moduleName);
+            
+            if (isEnabled && !wasEnabled) {
+                enabledModules.add(moduleName);
+                pendingEnables.add(moduleName);
+                lastModuleChange = now;
+            } else if (!isEnabled && wasEnabled) {
+                enabledModules.remove(moduleName);
+                pendingDisables.add(moduleName);
+                lastModuleChange = now;
+            }
         }
     }
 
@@ -509,20 +548,64 @@ void sendModuleAlert(String title, String message, boolean enabled) {
     bridge.add(ALERT_QUEUE_KEY, queue);
 }
 
+/* Queue Commands */
 void initializeQueueCommands() {
-    addCommand(new String[]{"/1s"}, "bedwars_eight_one");
-    addCommand(new String[]{"/2s"}, "bedwars_eight_two");
-    addCommand(new String[]{"/3s"}, "bedwars_four_three");
-    addCommand(new String[]{"/4s"}, "bedwars_four_four");
-    addCommand(new String[]{"/4v4"}, "bedwars_two_four");
-    addCommand(new String[]{"/sbs", "/speedbuilders"}, "build_battle_speed_builders");
-    addCommand(new String[]{"/rq", "/requeue"}, "requeue");
-    
+    // Bedwars commands
+    addCommand(new String[]{"1s"}, "bedwars_eight_one");
+    addCommand(new String[]{"2s"}, "bedwars_eight_two");
+    addCommand(new String[]{"3s"}, "bedwars_four_three");
+    addCommand(new String[]{"4s"}, "bedwars_four_four");
+    addCommand(new String[]{"4v4"}, "bedwars_two_four");
+    addCommand(new String[]{"2r"}, "bedwars_eight_two_rush");
+    addCommand(new String[]{"4r"}, "bedwars_four_four_rush");
+    addCommand(new String[]{"c"}, "bedwars_castle");
+
+    // Skywars commands
+    addCommand(new String[]{"sn"}, "solo_normal");
+    addCommand(new String[]{"si"}, "solo_insane");
+    addCommand(new String[]{"tn"}, "teams_normal");
+    addCommand(new String[]{"ti"}, "teams_insane");
+
+    // Duels commands
+    addCommand(new String[]{"bowd"}, "duels_bow_duel");
+    addCommand(new String[]{"cd"}, "duels_classic_duel");
+    addCommand(new String[]{"opd"}, "duels_op_duel");
+    addCommand(new String[]{"uhcd"}, "duels_uhc_duel");
+    addCommand(new String[]{"bd"}, "duels_bridge_duel");
+
+    // Other games
+    addCommand(new String[]{"pit"}, "pit");
+    addCommand(new String[]{"uhc"}, "uhc_solo");
+    addCommand(new String[]{"tuhc"}, "uhc_teams");
+    addCommand(new String[]{"mm"}, "murder_classic");
+    addCommand(new String[]{"ww"}, "wool_wool_wars_two_four");
+    addCommand(new String[]{"ctw"}, "wool_capture_the_wool_two_twenty");
+    addCommand(new String[]{"sbs"}, "build_battle_speed_builders");
+
+    // Game display names
     GAME_NAMES.put("bedwars_eight_one", "Solo Bedwars");
     GAME_NAMES.put("bedwars_eight_two", "Doubles Bedwars");
     GAME_NAMES.put("bedwars_four_three", "3v3v3v3 Bedwars");
     GAME_NAMES.put("bedwars_four_four", "4v4v4v4 Bedwars");
     GAME_NAMES.put("bedwars_two_four", "4v4 Bedwars");
+    GAME_NAMES.put("bedwars_eight_two_rush", "Doubles Rush");
+    GAME_NAMES.put("bedwars_four_four_rush", "4v4v4v4 Rush");
+    GAME_NAMES.put("bedwars_castle", "Castle");
+    GAME_NAMES.put("solo_normal", "Solo Normal");
+    GAME_NAMES.put("solo_insane", "Solo Insane");
+    GAME_NAMES.put("teams_normal", "Teams Normal");
+    GAME_NAMES.put("teams_insane", "Teams Insane");
+    GAME_NAMES.put("duels_bow_duel", "Bow Duels");
+    GAME_NAMES.put("duels_classic_duel", "Classic Duels");
+    GAME_NAMES.put("duels_op_duel", "OP Duels");
+    GAME_NAMES.put("duels_uhc_duel", "UHC Duels");
+    GAME_NAMES.put("duels_bridge_duel", "Bridge Duels");
+    GAME_NAMES.put("pit", "The Pit");
+    GAME_NAMES.put("uhc_solo", "UHC Solo");
+    GAME_NAMES.put("uhc_teams", "UHC Teams");
+    GAME_NAMES.put("murder_classic", "Murder Mystery");
+    GAME_NAMES.put("wool_wool_wars_two_four", "Wool Wars");
+    GAME_NAMES.put("wool_capture_the_wool_two_twenty", "Capture the Wool");
     GAME_NAMES.put("build_battle_speed_builders", "Speed Builders");
 }
 
@@ -539,13 +622,23 @@ boolean onPacketSent(CPacket packet) {
         C01 c01 = (C01) packet;
         String message = c01.message.toLowerCase().trim();
         
-        String gameId = QUEUE_COMMANDS.get(message);
-        if (gameId != null) {
-            if (gameId.equals("requeue")) {
-                handleRequeue();
-            } else {
-                queueForGame(gameId);
+        if (message.startsWith("/q ")) {
+            String[] parts = message.split(" ");
+            if (parts.length > 1) {
+                String command = parts[1].trim();
+                String gameId = QUEUE_COMMANDS.get(command);
+                if (gameId != null) {
+                    queueForGame(gameId);
+                } else {
+                    if (modules.getButton(scriptName, "Show Queue Alerts")) {
+                        sendQueueAlert(ALERT_TITLE_QUEUE, "Error sending queue command for mode: &b" + command + "&r (&dInvalid&r)", 3);
+                        client.ping();
+                    }
+                }
+                return false;
             }
+        } else if (message.equals("/rq")) {
+            handleRequeue();
             return false;
         }
     }
@@ -578,5 +671,38 @@ void sendQueueAlert(String title, String message, int type) {
     alert.put("message", message);
     alert.put("duration", 3000);
     alert.put("type", type);
-    bridge.add("clientAlert", alert);
+
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> queue = (List<Map<String, Object>>) bridge.get(ALERT_QUEUE_KEY);
+    if (queue == null) {
+        queue = new ArrayList<>();
+    }
+    queue.add(alert);
+    bridge.add(ALERT_QUEUE_KEY, queue);
+}
+
+// Update the event name to match the correct one
+void onAntiCheatFlag(String flag, Entity entity) {
+    if (!modules.getButton(scriptName, "Enable AntiCheat Alerts")) return;
+    if (bridge.has(ALERT_QUEUE_KEY)) return;
+    
+    String formattedMessage = util.color(ANTICHEAT_FORMAT)
+        .replace("{entity}", entity.getName())
+        .replace("{flag}", flag);
+    
+    int duration = (int)(modules.getSlider(scriptName, "AC Alert Duration") * 1000);
+    
+    Map<String, Object> alert = new HashMap<>();
+    alert.put("title", ALERT_TITLE_ANTICHEAT);
+    alert.put("message", formattedMessage);
+    alert.put("duration", duration);
+    alert.put("type", 1); // Warning type
+
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> queue = (List<Map<String, Object>>) bridge.get(ALERT_QUEUE_KEY);
+    if (queue == null) {
+        queue = new ArrayList<>();
+    }
+    queue.add(alert);
+    bridge.add(ALERT_QUEUE_KEY, queue);
 }
