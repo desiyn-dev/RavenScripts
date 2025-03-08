@@ -264,7 +264,7 @@ void renderDefault(Entity target, float thealth, float shealth, int winning, int
     
     int subheaderY = headerY + fontHeight + ROW_GAP;
     String healthText = String.format("%.1f \u2764", target.getHealth());
-    render.text(healthText, textAreaX + TEXT_AREA_PADDING, subheaderY, 1f, getAccentColor(), true);
+    render.text(healthText, textAreaX + TEXT_AREA_PADDING, subheaderY, 1f, getCurrentColor(0), true);
     float diff = shealth - target.getHealth();
     String diffText = (diff > 0 ? "+" : "") + String.format("%.1f", diff);
     int diffTextWidth = render.getFontWidth(diffText);
@@ -275,7 +275,7 @@ void renderDefault(Entity target, float thealth, float shealth, int winning, int
     float healthPercentage = interpolatedHealth / target.getMaxHealth();
     int healthBarWidth = (int)(healthBarMaxWidth * healthPercentage);
     render.rect(healthBarX, healthBarY, healthBarX + healthBarMaxWidth, healthBarY + HEALTH_BAR_HEIGHT, 0xFF444444);
-    render.rect(healthBarX, healthBarY, healthBarX + healthBarWidth, healthBarY + HEALTH_BAR_HEIGHT, getAccentColor());
+    render.rect(healthBarX, healthBarY, healthBarX + healthBarWidth, healthBarY + HEALTH_BAR_HEIGHT, getCurrentColor(0));
 }
 
 
@@ -324,11 +324,11 @@ void renderAstolfo(Entity target, float thealth, float shealth, int winning, int
     int healthBarWidth = (int)(healthBarMaxWidth * healthPercentage);
     
     render.rect(healthBarX, healthBarY, healthBarX + healthBarMaxWidth, healthBarY + ASTOLFO_HEALTHBAR_HEIGHT, 0xFF444444);
-    render.rect(healthBarX, healthBarY, healthBarX + healthBarWidth, healthBarY + ASTOLFO_HEALTHBAR_HEIGHT, getAccentColor());
+    render.rect(healthBarX, healthBarY, healthBarX + healthBarWidth, healthBarY + ASTOLFO_HEALTHBAR_HEIGHT, getCurrentColor(0));
     
     // Health text in middle area
     int midY = (nameY + healthBarY) / 2 - 4;
-    render.text(String.format("%.1f \u2764", target.getHealth()), nameX, midY, 2f, getAccentColor(), true);
+    render.text(String.format("%.1f \u2764", target.getHealth()), nameX, midY, 2f, getCurrentColor(0), true);
     
     // Add health difference if enabled
     boolean showHealthDiff = modules.getButton(scriptName, "Show Health Diff");
@@ -355,7 +355,7 @@ void renderMyau(Entity target, float thealth, float shealth, int winning, int x,
     int effectiveHudWidth = showHead ? MYAU_HUD_WIDTH : MYAU_HUD_WIDTH - MYAU_HUD_HEIGHT;
     render.rect(x, y, x + effectiveHudWidth, y + MYAU_HUD_HEIGHT, MYAU_HUD_COLOR);
 
-    int accentColor = getAccentColor();
+    int accentColor = getCurrentColor(0);
     
     // border
     render.rect(x - 1, y - 1, x + effectiveHudWidth + 1, y, accentColor);
