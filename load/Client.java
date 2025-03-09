@@ -1,24 +1,24 @@
-static final String ALERT_QUEUE_KEY = "clientAlertQueue";
+String ALERT_QUEUE_KEY = "clientAlertQueue";
 
 /* Constants */
 // Alert dimensions
-static final float ALERT_WIDTH = 250;
-static final float ICON_SIZE = 20;
-static final float ICON_PADDING = 4;
-static final float BAR_HEIGHT = 2.5f;
-static final float DEFAULT_PADDING = 4;
+float ALERT_WIDTH = 250;
+float ICON_SIZE = 20;
+float ICON_PADDING = 4;
+float BAR_HEIGHT = 2.5f;
+float DEFAULT_PADDING = 4;
 
 // Alert types
-static final int ALERT_TYPE_DEFAULT = 0;
-static final int ALERT_TYPE_WARNING = 1;
-static final int ALERT_TYPE_CONFIRMATION = 2;
-static final int ALERT_TYPE_ERROR = 3;
+final int ALERT_TYPE_DEFAULT = 0;
+final int ALERT_TYPE_WARNING = 1;
+final int ALERT_TYPE_CONFIRMATION = 2;
+final int ALERT_TYPE_ERROR = 3;
 
 // Colors
-static final int TEXT_COLOR = 0xFFFFFFFF;
-static final int WARNING_COLOR = 0xFFFFAA00;
-static final int CONFIRM_COLOR = 0xFF55FF55;
-static final int ERROR_COLOR = 0xFFFF5555;
+final int TEXT_COLOR = 0xFFFFFFFF;
+final int WARNING_COLOR = 0xFFFFAA00;
+final int CONFIRM_COLOR = 0xFF55FF55;
+final int ERROR_COLOR = 0xFFFF5555;
 
 /* State */
 // Color system
@@ -499,9 +499,9 @@ void renderAlertContent(Map<String, Object> alertData, float currentX, float cur
 float renderAlertIcon(Map<String, Object> alertData, float currentX, float currentY, float textY) {
     float scaledPadding = DEFAULT_PADDING * scale;
     float iconSize = ICON_SIZE * scale;
-    float textX = currentX + scaledPadding + iconSize + (ICON_PADDING * scale);
     float textHeight = (render.getFontHeight() * scale * 2) + (DEFAULT_PADDING * scale);
     float iconY = textY + (textHeight - iconSize) / 2;
+    float textX = currentX + scaledPadding + iconSize + (ICON_PADDING * scale);
     
     Image icon = null;
     switch ((int)alertData.getOrDefault("type", ALERT_TYPE_DEFAULT)) {

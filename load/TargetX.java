@@ -302,10 +302,8 @@ void renderAstolfo(Entity target, float thealth, float shealth, int winning, int
     int nameX = textAreaX + ASTOLFO_TEXT_PADDING;
     int nameY = y + ASTOLFO_TEXT_PADDING;
     
-    // Name row with optional W/L indicator
     render.text(target.getDisplayName(), nameX, nameY, 1f, 0xFFFFFFFF, true);
     
-    // Add win/loss indicator if enabled
     boolean showWL = modules.getButton(scriptName, "Show W/L");
     if (showWL) {
         String winText = (winning == 1) ? util.color("&a&lW")
@@ -326,11 +324,9 @@ void renderAstolfo(Entity target, float thealth, float shealth, int winning, int
     render.rect(healthBarX, healthBarY, healthBarX + healthBarMaxWidth, healthBarY + ASTOLFO_HEALTHBAR_HEIGHT, 0xFF444444);
     render.rect(healthBarX, healthBarY, healthBarX + healthBarWidth, healthBarY + ASTOLFO_HEALTHBAR_HEIGHT, getCurrentColor(0));
     
-    // Health text in middle area
     int midY = (nameY + healthBarY) / 2 - 4;
     render.text(String.format("%.1f \u2764", target.getHealth()), nameX, midY, 2f, getCurrentColor(0), true);
     
-    // Add health difference if enabled
     boolean showHealthDiff = modules.getButton(scriptName, "Show Health Diff");
     if (showHealthDiff) {
         float diff = shealth - target.getHealth();
