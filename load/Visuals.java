@@ -356,7 +356,7 @@ void onLoad() {
     }
     
     loadWatermarkProfiles();
-    modules.registerDescription(util.color("by @desiyn"))
+    modules.registerDescription(util.color("&7by @desiyn"));
 }
 
 void onEnable() {
