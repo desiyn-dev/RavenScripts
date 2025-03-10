@@ -325,7 +325,7 @@ void onLoad() {
     // Watermark
     modules.registerDescription("> Watermark");
     modules.registerButton("Enable Watermark", true);
-    modules.registerSlider("Watermark Style", "", 0, new String[] {"Simple", "CS:GO"});
+    modules.registerSlider("Watermark Style", "", 0, new String[] {"Simple", "CS:GO", "Rounded"});
     modules.registerSlider("Watermark Profile", "", 0, watermarkProfileNames);
     modules.registerButton("Sync Watermark Colors", false);
 
@@ -858,9 +858,12 @@ void watermarkHUD() {
     if (watermarkStyle == 0) {
         width = render.getFontWidth(stripColorCodes(processedWatermarkText));
         height = render.getFontHeight();
-    } else {
+    } else if (watermarkStyle == 1) {
         width = calculateTextWidthWithSeparators(stripColorCodes(processedWatermarkText)) + 10;
         height = 17;
+    } else {
+        width = calculateTextWidthWithSeparators(stripColorCodes(processedWatermarkText)) + 15;
+        height = render.getFontHeight() + 13;
     }
     
     if (chatOpened && moveInChatEnabled) {
@@ -875,6 +878,8 @@ void watermarkHUD() {
         renderSimpleWatermark(processedWatermarkText, syncWatermarkColors, watermarkX, watermarkY);
     } else if (watermarkStyle == 1) {
         renderCSGOWatermark(processedWatermarkText, syncWatermarkColors, watermarkX, watermarkY);
+    } else if (watermarkStyle == 2) {
+        renderRoundedWatermark(processedWatermarkText, syncWatermarkColors, watermarkX, watermarkY);
     }
 }
 
@@ -911,6 +916,40 @@ void renderCSGOWatermark(String text, boolean syncColors, int x, int y) {
     }
     
     renderTextWithSeparators(text, x + 5, y + 6, y + 5, y + 14);
+}
+
+void renderRoundedWatermark(String text, boolean syncColors, int x, int y) {
+    if (text == null || text.isEmpty()) return;
+    
+    float textWidth = calculateTextWidthWithSeparators(text);
+    float rectWidth = textWidth + 15;
+    int bgColor = getBackgroundColor();
+    
+    int fontHeight = render.getFontHeight();
+    int totalHeight = fontHeight + 13;
+    
+    render.roundedRect(x, y, x + rectWidth, y + totalHeight, 11f, bgColor);
+    
+    float textX = x + (rectWidth - textWidth) / 2;
+    float textY = y + (totalHeight) / 2 - fontHeight / 2;
+    
+    if (text.contains("$SEPARATOR")) {
+        String[] parts = text.split("\\$SEPARATOR");
+        float currentX = textX;
+        
+        for (int i = 0; i < parts.length; i++) {
+            if (i == 0 && parts[i].isEmpty()) continue;
+            render.text(parts[i], currentX, textY, 1f, WHITE, true);
+            currentX += render.getFontWidth(parts[i]);
+            if (i < parts.length - 1) {
+                currentX += render.getFontWidth(" ") / 2;
+                renderSeparator(currentX, y + 5, y + totalHeight - 5);
+                currentX += render.getFontWidth(" ") / 2 + 1;
+            }
+        }
+    } else {
+        render.text(text, textX, textY, 1f, WHITE, true);
+    }
 }
 
 float calculateTextWidthWithSeparators(String text) {
@@ -1425,7 +1464,6 @@ void renderMyau(Entity target, float thealth, float shealth, int winning, int x,
 
     int accentColor = targetHUDSync ? getCurrentColor(0) : 0xFFFF0000;
     
-    // border
     render.rect(x - 1, y - 1, x + effectiveHudWidth + 1, y, accentColor);
     render.rect(x - 1, y + MYAU_HUD_HEIGHT, x + effectiveHudWidth + 1, y + MYAU_HUD_HEIGHT + 1, accentColor);
     render.rect(x - 1, y - 1, x, y + MYAU_HUD_HEIGHT + 1, accentColor);
@@ -1440,7 +1478,6 @@ void renderMyau(Entity target, float thealth, float shealth, int winning, int x,
         contentStartX = x + MYAU_HUD_HEIGHT;
     }
 
-    // first line
     render.text(target.getDisplayName(), 
                 contentStartX + MYAU_HUD_PADDING, 
                 y + MYAU_HUD_PADDING, 1f, 0xFFFFFFFF, targetTextShadow);
@@ -1452,7 +1489,6 @@ void renderMyau(Entity target, float thealth, float shealth, int winning, int x,
                 x + effectiveHudWidth - winTextWidth - MYAU_HUD_PADDING, 
                 y + MYAU_HUD_PADDING, 1f, 0xFFFFFFFF, targetTextShadow);
 
-    // second line
     render.text(String.format("%.1f \u2764", target.getHealth()), 
                 contentStartX + MYAU_HUD_PADDING, 
                 y + render.getFontHeight() + (MYAU_HUD_PADDING * 2), 
@@ -1466,7 +1502,6 @@ void renderMyau(Entity target, float thealth, float shealth, int winning, int x,
     int diffColor = (diff > 0) ? 0xFF00FF00 : (diff < 0) ? 0xFFFF0000 : 0xFFFFFF00;
     render.text(diffText, diffTextX, diffTextY, 1f, diffColor, targetTextShadow);
 
-    // health bar
     int healthBarX = contentStartX + MYAU_HUD_PADDING;
     int healthBarMaxWidth = effectiveHudWidth - (targetShowHead ? MYAU_HUD_HEIGHT : 0) - 2 * MYAU_HUD_PADDING;
     int healthBarY = y + MYAU_HUD_HEIGHT - MYAU_HUD_PADDING - MYAU_HEALTHBAR_HEIGHT;
