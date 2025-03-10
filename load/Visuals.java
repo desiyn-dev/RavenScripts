@@ -862,8 +862,15 @@ void watermarkHUD() {
         width = calculateTextWidthWithSeparators(stripColorCodes(processedWatermarkText)) + 10;
         height = 17;
     } else {
+        int fontHeight = render.getFontHeight();
+        int totalHeight = fontHeight + 13;
+        int imageSize = totalHeight - (WATERMARK_IMAGE_PADDING * 2);
+        
         width = calculateTextWidthWithSeparators(stripColorCodes(processedWatermarkText)) + 15;
-        height = render.getFontHeight() + 13;
+        if (watermarkImageLoaded && watermarkImage != null) {
+            width += imageSize + WATERMARK_IMAGE_PADDING;
+        }
+        height = totalHeight;
     }
     
     if (chatOpened && moveInChatEnabled) {
@@ -878,7 +885,7 @@ void watermarkHUD() {
         renderSimpleWatermark(processedWatermarkText, syncWatermarkColors, watermarkX, watermarkY);
     } else if (watermarkStyle == 1) {
         renderCSGOWatermark(processedWatermarkText, syncWatermarkColors, watermarkX, watermarkY);
-    } else if (watermarkStyle == 2) {
+    } else {
         renderRoundedWatermark(processedWatermarkText, syncWatermarkColors, watermarkX, watermarkY);
     }
 }
@@ -921,17 +928,44 @@ void renderCSGOWatermark(String text, boolean syncColors, int x, int y) {
 void renderRoundedWatermark(String text, boolean syncColors, int x, int y) {
     if (text == null || text.isEmpty()) return;
     
-    float textWidth = calculateTextWidthWithSeparators(text);
-    float rectWidth = textWidth + 15;
-    int bgColor = getBackgroundColor();
+    if (!watermarkImageLoaded) {
+        loadWatermarkImage();
+    }
     
     int fontHeight = render.getFontHeight();
     int totalHeight = fontHeight + 13;
     
+    int imageSize = totalHeight - (WATERMARK_IMAGE_PADDING * 2);
+    int imageX = x + WATERMARK_IMAGE_PADDING;
+    int imageY = y + WATERMARK_IMAGE_PADDING;
+    
+    float textWidth = calculateTextWidthWithSeparators(text);
+    float rectWidth = textWidth + 15;
+    
+    if (watermarkImageLoaded && watermarkImage != null) {
+        rectWidth += imageSize + WATERMARK_IMAGE_PADDING;
+    }
+    
+    int bgColor = getBackgroundColor();
+    
     render.roundedRect(x, y, x + rectWidth, y + totalHeight, 11f, bgColor);
     
-    float textX = x + (rectWidth - textWidth) / 2;
+    float textX;
+    if (watermarkImageLoaded && watermarkImage != null) {
+        textX = imageX + imageSize + WATERMARK_IMAGE_PADDING * 2;
+    } else {
+        textX = x + (rectWidth - textWidth) / 2;
+    }
+    
     float textY = y + (totalHeight) / 2 - fontHeight / 2;
+    
+    if (watermarkImageLoaded && watermarkImage != null) {
+        try {
+            render.image(watermarkImage, imageX, imageY, imageSize, imageSize);
+        } catch (Exception e) {
+            debug("Error rendering watermark image: " + e.getMessage());
+        }
+    }
     
     if (text.contains("$SEPARATOR")) {
         String[] parts = text.split("\\$SEPARATOR");
@@ -949,6 +983,30 @@ void renderRoundedWatermark(String text, boolean syncColors, int x, int y) {
         }
     } else {
         render.text(text, textX, textY, 1f, WHITE, true);
+    }
+}
+
+void listWatermarkProfiles() {
+    print("&eWatermark Profiles:");
+    for (int i = 0; i < watermarkProfiles.length; i++) {
+        print("&e" + (i + 1) + ". &f" + "\"" + watermarkProfiles[i] + "\"");
+    }
+    print("&eCurrent profile: &f" + (selectedWatermarkProfile + 1));
+}
+
+Image watermarkImage = null;
+boolean watermarkImageLoaded = false;
+final String WATERMARK_IMAGE_URL = "https://raw.githubusercontent.com/desiyn-dev/RavenScripts/main/assets/raven.png";
+final int WATERMARK_IMAGE_PADDING = 2;
+
+void loadWatermarkImage() {
+    try {
+        watermarkImage = new Image(WATERMARK_IMAGE_URL, true);
+        watermarkImageLoaded = true;
+        debug("Watermark image loaded successfully");
+    } catch (Exception e) {
+        debug("Failed to load watermark image: " + e.getMessage());
+        watermarkImageLoaded = false;
     }
 }
 
@@ -1509,12 +1567,4 @@ void renderMyau(Entity target, float thealth, float shealth, int winning, int x,
     int healthBarWidth = (int)(healthBarMaxWidth * healthPercentage);
     render.rect(healthBarX, healthBarY, healthBarX + healthBarMaxWidth, healthBarY + MYAU_HEALTHBAR_HEIGHT, MYAU_HUD_COLOR);
     render.rect(healthBarX, healthBarY, healthBarX + healthBarWidth, healthBarY + MYAU_HEALTHBAR_HEIGHT, accentColor);
-}
-
-void listWatermarkProfiles() {
-    print("&eWatermark Profiles:");
-    for (int i = 0; i < watermarkProfiles.length; i++) {
-        print("&e" + (i + 1) + ". &f" + "\"" + watermarkProfiles[i] + "\"");
-    }
-    print("&eCurrent profile: &f" + (selectedWatermarkProfile + 1));
 }
