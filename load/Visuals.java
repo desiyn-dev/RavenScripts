@@ -1399,20 +1399,12 @@ void renderTargetHUD(Entity target) {
     }
 }
 
-
 void renderDefaultTarget(Entity target, float thealth, float shealth, int winning, int x, int y) {
     // background
     render.blur.prepare();
     render.roundedRect(x, y, x + HUD_WIDTH, y + HUD_HEIGHT, 8f, -1);
     render.blur.apply(2, 3);
     render.roundedRect(x, y, x + HUD_WIDTH, y + HUD_HEIGHT, 8f, getBackgroundColor());
-
-    // health
-    int healthBarX = x + OUTER_PADDING;
-    int healthBarY = y + HUD_HEIGHT - OUTER_PADDING * 2;
-    int healthBarWidth = HUD_WIDTH - OUTER_PADDING * 2;
-    float healthPercentage = thealth / target.getMaxHealth();
-    render.roundedRect(healthBarX, healthBarY, healthBarX + healthBarWidth * healthPercentage, healthBarY + OUTER_PADDING, 3f, getCurrentColor(0));
 
     // entity
     int entityCenterX = x + (ENTITY_AREA_WIDTH / 2);
@@ -1424,44 +1416,44 @@ void renderDefaultTarget(Entity target, float thealth, float shealth, int winnin
     render.text(target.getDisplayName(), x + ENTITY_AREA_WIDTH, y + OUTER_PADDING + 2, 1f, 0xFFFFFFFF, true);
 
     // health stats
-    render.text(String.format("%.1f \u2764", thealth), x + ENTITY_AREA_WIDTH, y + OUTER_PADDING + render.getFontHeight() + INNER_PADDING + 2, 1f, getCurrentColor(0), true);
-    float diff = shealth - thealth;
-    render.text(String.format("%.1f", diff), x + HUD_WIDTH - OUTER_PADDING - render.getFontWidth(String.format("%.1f", diff)), y + OUTER_PADDING + render.getFontHeight() + INNER_PADDING + 2, 1f, (diff > 0) ? 0xFF00FF00 : (diff < 0) ? 0xFFFF0000 : 0xFFFFFF00, true);
+    int textColor = targetHUDSync ? getCurrentColor(0) : 0xFFFFFFFF;
+    render.text(String.format("%.1f \u2764", interpolatedHealth), x + ENTITY_AREA_WIDTH, 
+               y + OUTER_PADDING + render.getFontHeight() + INNER_PADDING + 2, 1f, textColor, true);
+    
+    float diff = shealth - interpolatedHealth;
+    String diffText = String.format("%+.1f", diff);
+    int diffTextWidth = render.getFontWidth(diffText);
+    int diffTextX = x + HUD_WIDTH - OUTER_PADDING - diffTextWidth;
+    int diffColor = (diff > 0) ? 0xFF00FF00 : (diff < 0) ? 0xFFFF0000 : 0xFFFFFF00;
+    render.text(diffText, diffTextX, y + OUTER_PADDING + render.getFontHeight() + INNER_PADDING + 2, 
+               1f, diffColor, true);
 
     // items
     int itemY = y + OUTER_PADDING + render.getFontHeight() * 2 + INNER_PADDING * 2 + 2;
     int itemSpacing = 20;
-    
     int currentX = x + ENTITY_AREA_WIDTH;
     
-    ItemStack heldItem = target.getHeldItem();
-    if (heldItem != null) {
-        render.item(heldItem, currentX, itemY, 1.0f);
-    }
-    currentX += itemSpacing;
+    ItemStack[] items = new ItemStack[5];
+    items[0] = target.getHeldItem();
+    items[1] = target.getArmorInSlot(3); // helmet
+    items[2] = target.getArmorInSlot(2); // chestplate
+    items[3] = target.getArmorInSlot(1); // leggings
+    items[4] = target.getArmorInSlot(0); // boots
     
-    ItemStack helmet = target.getArmorInSlot(3);
-    if (helmet != null) {
-        render.item(helmet, currentX, itemY, 1.0f);
+    for (ItemStack item : items) {
+        if (item != null) {
+            render.item(item, currentX, itemY, 1.0f);
+        }
+        currentX += itemSpacing;
     }
-    currentX += itemSpacing;
-    
-    ItemStack chestplate = target.getArmorInSlot(2);
-    if (chestplate != null) {
-        render.item(chestplate, currentX, itemY, 1.0f);
-    }
-    currentX += itemSpacing;
-    
-    ItemStack leggings = target.getArmorInSlot(1);
-    if (leggings != null) {
-        render.item(leggings, currentX, itemY, 1.0f);
-    }
-    currentX += itemSpacing;
-    
-    ItemStack boots = target.getArmorInSlot(0);
-    if (boots != null) {
-        render.item(boots, currentX, itemY, 1.0f);
-    }
+
+    // health bar
+    int healthBarX = x + OUTER_PADDING;
+    int healthBarY = y + HUD_HEIGHT - OUTER_PADDING * 2;
+    int healthBarWidth = HUD_WIDTH - OUTER_PADDING * 2;
+    float healthPercentage = interpolatedHealth / target.getMaxHealth();
+    render.roundedRect(healthBarX, healthBarY, healthBarX + (int)(healthBarWidth * healthPercentage), 
+                      healthBarY + OUTER_PADDING, 3f, textColor);
 }
 
 void renderAstolfo(Entity target, float thealth, float shealth, int winning, int x, int y) {
