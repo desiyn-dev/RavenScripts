@@ -1417,10 +1417,10 @@ void renderDefaultTarget(Entity target, float thealth, float shealth, int winnin
 
     // health stats
     int textColor = targetHUDSync ? getCurrentColor(0) : 0xFFFFFFFF;
-    render.text(String.format("%.1f \u2764", interpolatedHealth), x + ENTITY_AREA_WIDTH, 
+    render.text(String.format("%.1f \u2764", target.getHealth()), x + ENTITY_AREA_WIDTH, 
                y + OUTER_PADDING + render.getFontHeight() + INNER_PADDING + 2, 1f, textColor, true);
     
-    float diff = shealth - interpolatedHealth;
+    float diff = shealth - target.getHealth();
     String diffText = String.format("%+.1f", diff);
     int diffTextWidth = render.getFontWidth(diffText);
     int diffTextX = x + HUD_WIDTH - OUTER_PADDING - diffTextWidth;
