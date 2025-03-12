@@ -462,15 +462,15 @@ void renderAlertBackground(Map<String, Object> alertData, float currentX, float 
     
     if (useBlur) {
         render.blur.prepare();
-        render.rect(currentX, currentY, 
+        render.roundedRect(currentX, currentY, 
                    currentX + width, 
-                   currentY + height, -1);
+                   currentY + height, 5f, -1);
         render.blur.apply(2, 3);
     }
     
-    render.rect(currentX, currentY, 
+    render.roundedRect(currentX, currentY, 
                currentX + width, 
-               currentY + height, 
+               currentY + height, 5f,
                getBackgroundColor());
 }
 
@@ -541,9 +541,9 @@ void renderProgressBar(Map<String, Object> alertData, float currentX, float curr
     int barColor = getCurrentColor(alerts.indexOf(alertData) * 50L, type);
 
     float barY = currentY + height - progressBarHeight - scaledPadding;
-    render.rect(currentX + scaledPadding, 
+    render.roundedRect(currentX + scaledPadding, 
                barY,
                currentX + scaledPadding + progressBarWidth,
-               barY + progressBarHeight,
+               barY + progressBarHeight, 1.5f,
                barColor);
 }
