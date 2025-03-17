@@ -689,7 +689,11 @@ boolean onPacketSent(CPacket packet) {
         }
     }
     
-    if (modules.getButton(scriptName, "Vertical tower")) {
+    if (modules.getButton(scriptName, "Legit autoblock")) {
+        if (abConditions() && (packet instanceof C02 || packet instanceof C0A || packet instanceof C08 || packet instanceof C07)) return false;
+    }
+
+    if (modules.getButton(scriptName, "Vertical tower") && modules.isEnabled("Scaffold")) {
         handleVerticalTowerPackets(packet);
     }
     
