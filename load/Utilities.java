@@ -1,7 +1,5 @@
-/* Render Data */
+/* Render Data and Alert System */
 static final Map<String, Object> renderInfo = new HashMap<>();
-
-/* Alert System */
 static String ALERT_QUEUE_KEY;
 static final String ALERT_TITLE_MODULES = "Module Alerts";
 static final String ALERT_TITLE_QUEUE = "Queue Commands";
@@ -14,7 +12,7 @@ float padding = 4;
 float barHeight = 2;
 float displayX, displayY;
 
-// Combat tracking
+/* Combat Tracking */
 Entity target;
 Entity lastTarget;
 Entity player;
@@ -29,13 +27,13 @@ int killMessageSent = 1;
 int missCheckCounter = 0;
 int hurtTimeCounter = 0;
 
-// Lagback handling
+/* Lagback Handling */
 long lastLagbackTime = 0;
 boolean wasBhopEnabled = false;
 boolean shouldReEnable = false;
 int disableDuration = 3000;
 
-// Module tracking
+/* Module Tracking */
 List<String> enabledModules = new ArrayList<>();
 List<String> pendingEnables = new ArrayList<>();
 List<String> pendingDisables = new ArrayList<>();
@@ -44,12 +42,27 @@ long lastModuleChange = 0;
 static final long BATCH_DELAY = 50;
 boolean playSounds = false;
 int alertDelay = 3000;
+int abStage = 0;
+String gameMode = "";
+boolean checkMode = false, scoreboard = false;
+int checkModeTicks = 0;
+int previousTheme = -1;
 
-// Queue system
+/* Vertical Tower */
+boolean towerEdge = false, towerOver = false, towerUnder = false, towerGroundCheck = false, towerDamage = false;
+int towerStage = 0, towerDelay = 0, towerDamageticks = 0;
+double towerFirstX = 0;
+C08 towerQueued = null;
+final boolean towerAlignGround = true, towerAlignPlaceSecond = true, towerDisableHurt = true;
+final int towerAlignTicks = 3, towerDisableHurtTicks = 9;
+final double edgingMotion = 0.24;
+
+/* Queue System */
 static final Map<String, String> QUEUE_COMMANDS = new HashMap<>();
 static final Map<String, String> GAME_NAMES = new HashMap<>();
 String lastQueuedGame = "";
 
+/* AntiCheat */
 static final String ANTICHEAT_FORMAT = "{entity} has been detected for {flag}.";
 
 /* Initialization */
@@ -76,27 +89,11 @@ void initializeDisplaySettings() {
     float defaultWidth = textWidth + (padding * 2);
     float defaultHeight = render.getFontHeight() + (padding * 3) + barHeight;
     
-    // Round to nearest whole number
     displayX = Math.round((displaySize[0] - defaultWidth) / 2);
     displayY = Math.round(displaySize[1] * 0.833f);
 }
 
 void registerModules() {
-    modules.registerDescription("> Module Alerts");
-    modules.registerButton("Enable Module Alerts", true);
-    modules.registerButton("Play Alert Sounds", false);
-    modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
-    
-    // Add category tracking settings under Module Alerts
-    modules.registerDescription("Categories to Alert");
-    for (String category : modules.getCategories().keySet()) {
-        if (!category.equalsIgnoreCase("profiles")) {
-            excludedCategories.put(category, false);
-            modules.registerButton("Alert " + category + " modules", true);
-        }
-    }
-    
-    // Add anticheat alerts section
     modules.registerDescription("> AntiCheat Alerts");
     modules.registerButton("Enable AntiCheat Alerts", true);
     modules.registerSlider("AC Alert Duration", "s", 5, 3, 10, 1);
@@ -117,10 +114,31 @@ void registerModules() {
     
     modules.registerDescription("> KillAura");
     modules.registerButton("Enable Aura Hitlog", true);
+    modules.registerButton("Legit autoblock", false);
+    
+    modules.registerDescription("> Scaffold");
+    modules.registerButton("Vertical tower", false);
 
     modules.registerDescription("> Queue Commands");
     modules.registerButton("Enable Queue Commands", true);
     modules.registerButton("Show Queue Alerts", true);
+    
+    modules.registerDescription("> Other");
+    modules.registerButton("AntiDebuff", false);
+    modules.registerButton("Theme sync", false);
+
+    modules.registerDescription("> Module Alerts");
+    modules.registerButton("Enable Module Alerts", true);
+    modules.registerButton("Play Alert Sounds", false);
+    modules.registerSlider("Alert Duration", "s", 3, 0, 10, 1);
+    
+    modules.registerDescription("Categories to Alert");
+    for (String category : modules.getCategories().keySet()) {
+        if (!category.equalsIgnoreCase("profiles")) {
+            excludedCategories.put(category, false);
+            modules.registerButton("Alert " + category + " modules", true);
+        }
+    }
 
     modules.registerDescription("by @desiyn");
 }
@@ -131,6 +149,17 @@ void onPreUpdate() {
     handleModuleAlerts();
     handleTargetStrafe();
     handleCombat();
+    
+    if (modules.getButton(scriptName, "AntiDebuff")) {
+        antiDebuff();
+    }
+    if (modules.getButton(scriptName, "Legit autoblock")) {
+        legitAB();
+    }
+    if (modules.getButton(scriptName, "Theme sync")) {
+        themeSync();
+    }
+    getGameMode();
 }
 
 void onRenderTick(float partialTicks) {
@@ -157,11 +186,31 @@ boolean onPacketReceived(Object packet) {
     return true;
 }
 
+void onPreMotion(PlayerState state) {
+    Entity player = client.getPlayer();
+    if (modules.getButton(scriptName, "Vertical tower")) {
+        verticalTower(player, state);
+    }
+}
+
+void onPostPlayerInput() {
+    if (modules.getButton(scriptName, "Vertical tower")) {
+        handleVerticalTowerInput();
+    }
+}
+
+boolean onChat(String msg) {
+    msg = util.strip(msg);
+    if (checkMode && msg.startsWith("{")) {
+         return parseGameMode(msg);
+    }
+    return true;
+}
+
 /* Rendering */
 void renderCountdown(long timeSinceLagback) {
     updateDisplayPosition();
     
-    // Calculate render info
     float seconds = (disableDuration - timeSinceLagback) / 1000f;
     float progress = timeSinceLagback / (float)disableDuration;
     String text = String.format("Bhop will be re-enabled in %.1fs", seconds);
@@ -169,14 +218,12 @@ void renderCountdown(long timeSinceLagback) {
     float height = render.getFontHeight() + barHeight + (padding * 3);
     float width = textWidth + (padding * 2);
     
-    // Store in render info
     renderInfo.put("text", text);
     renderInfo.put("textWidth", textWidth);
     renderInfo.put("progress", progress);
     renderInfo.put("width", width);
     renderInfo.put("height", height);
     
-    // Render components
     renderBackground();
     renderText();
     renderProgressBar();
@@ -326,10 +373,9 @@ void handleLagback() {
 }
 
 boolean shouldPlayLagbackSound() {
-    // If module alerts are enabled and sounds are enabled, don't play lagback sound
     boolean moduleAlertsEnabled = modules.getButton(scriptName, "Enable Module Alerts") && 
                                  modules.getButton(scriptName, "Play Alert Sounds") &&
-                                 modules.getButton(scriptName, "Alert Combat Modules"); // Assuming Bhop is in Combat category
+                                 modules.getButton(scriptName, "Alert Combat Modules");
                                    
     return modules.getButton(scriptName, "Play Lagback Sounds") && !moduleAlertsEnabled;
 }
@@ -482,7 +528,6 @@ void checkModuleStates() {
     for (String category : categories.keySet()) {
         if (category.equalsIgnoreCase("profiles")) continue;
         
-        // Skip if category is not being tracked
         if (!modules.getButton(scriptName, "Alert " + category + " modules")) continue;
         
         List<String> modulesList = categories.get(category);
@@ -633,7 +678,6 @@ boolean onPacketSent(CPacket packet) {
                 if (gameId != null) {
                     queueForGame(gameId);
                 } else {
-                    // Show help message instead of error alert for invalid commands
                     client.print("&7[&dR&7] &cUnknown queue command. Available commands:");
                     showQueueHelp();
                 }
@@ -644,6 +688,11 @@ boolean onPacketSent(CPacket packet) {
             return false;
         }
     }
+    
+    if (modules.getButton(scriptName, "Vertical tower")) {
+        handleVerticalTowerPackets(packet);
+    }
+    
     return true;
 }
 
@@ -695,7 +744,7 @@ void sendQueueAlert(String title, String message, int type) {
     bridge.add(ALERT_QUEUE_KEY, queue);
 }
 
-// Update the event name to match the correct one
+/* AntiCheat Flag Handler */
 void onAntiCheatFlag(String flag, Entity entity) {
     if (!modules.getButton(scriptName, "Enable AntiCheat Alerts")) return;
     if (bridge.has(ALERT_QUEUE_KEY)) return;
@@ -719,4 +768,225 @@ void onAntiCheatFlag(String flag, Entity entity) {
     }
     queue.add(alert);
     bridge.add(ALERT_QUEUE_KEY, queue);
+}
+
+// Legit autoblock
+void legitAB() {
+    if (abConditions()) {
+        switch (abStage) {
+            case 0:
+                client.sendPacketNoEvent(new C07(new Vec3(0, 0, 0), "RELEASE_USE_ITEM", "DOWN"));
+                keybinds.setPressed("use", false);
+                abStage++;
+                break;
+            case 1:
+                client.swing(false);
+                if (getTarget() != null) {
+                    client.sendPacketNoEvent(new C0A());
+                    client.sendPacketNoEvent(new C02(modules.getKillAuraTarget(), "ATTACK", null));
+                }
+                abStage++;
+                break;
+            case 2:
+                client.sendPacketNoEvent(new C08(client.getPlayer().getHeldItem(), new Vec3(-1, -1, -1), 255, new Vec3(0, 0, 0)));
+                keybinds.setPressed("use", true);
+                abStage = 0;
+                break;
+        }
+    } else {
+        abStage = 0;
+    }
+}
+
+boolean abConditions() {
+    return (
+        modules.isEnabled("KillAura") && 
+        modules.getSlider("KillAura", "Autoblock") == 0 && 
+        modules.getKillAuraTarget() != null && 
+        !modules.isEnabled("Blink") && 
+        keybinds.isMouseDown(1) && 
+        holding("sword")
+    );
+}
+
+Entity getTarget() {
+    Entity target = null;
+    double maxSq = 11.55;
+    for (Entity en : world.getPlayerEntities()) {
+        if (en == client.getPlayer()) continue;
+        double distSq = client.getPlayer().getPosition().distanceToSq(en.getPosition());
+        if (distSq < maxSq) {
+            maxSq = distSq;
+            target = en;
+        }
+    }
+    return target;
+}
+
+void antiDebuff() {
+    int[] effectIDs = {2, 15};
+    for (int effect : effectIDs) {
+        client.removePotionEffect(effect);
+    }
+}
+
+boolean holding(String itemType) {
+    Entity player = client.getPlayer();
+    if (player.getHeldItem() != null) {
+        if (itemType.equals("blocks")) {
+            return player.getHeldItem().isBlock;
+        } else {
+            return player.getHeldItem().type.toLowerCase().contains(itemType);
+        }
+    }
+    return false;
+}
+
+void themeSync() {
+    if ((int) modules.getSlider("TargetHUD", "Theme") != previousTheme ||
+        (int) modules.getSlider("HUD", "Theme") != previousTheme ||
+        (int) modules.getSlider("BedESP", "Theme") != previousTheme) {
+        int newTheme = (int) modules.getSlider("TargetHUD", "Theme");
+        if ((int) modules.getSlider("HUD", "Theme") != previousTheme) {
+            newTheme = (int) modules.getSlider("HUD", "Theme");
+        } else if ((int) modules.getSlider("BedESP", "Theme") != previousTheme) {
+            newTheme = (int) modules.getSlider("BedESP", "Theme");
+        }
+        modules.setSlider("TargetHUD", "Theme", newTheme);
+        modules.setSlider("HUD", "Theme", newTheme);
+        modules.setSlider("BedESP", "Theme", newTheme);
+        previousTheme = newTheme;
+    }
+}
+
+void verticalTower(Entity player, PlayerState state) {
+    if (towerDamage && ++towerDamageticks >= towerDisableHurtTicks) {
+        towerDamage = towerGroundCheck = towerUnder = towerOver = towerEdge = false;
+        towerDamageticks = towerStage = towerDelay = 0;
+    }
+    Vec3 position = player.getPosition();
+    if (towerQueued != null) {
+        client.sendPacketNoEvent(towerQueued);
+        client.sendPacketNoEvent(new C0A());
+        towerQueued = null;
+    }
+    double towerSimpleX = (int) Math.round(position.x);
+    if (verticalTowerConditions() && jumpLvl() == 0) {
+        if (player.onGround()) towerGroundCheck = true;
+        if (!towerGroundCheck) return;
+        if (towerDelay == 0) {
+            towerFirstX = towerSimpleX;
+            towerDelay = 1;
+            client.setSpeed(0);
+            if (towerSimpleX > position.x) towerOver = true;
+            if (towerSimpleX < position.x) towerUnder = true;
+        }
+        if ((!towerEdge && towerDelay >= 1 && !towerAlignGround) || (!towerEdge && towerDelay >= 1 && player.onGround() && towerAlignGround)) {
+            Vec3 motion = client.getMotion();
+            if (towerUnder) client.setMotion(edgingMotion, motion.y, motion.z);
+            if (towerOver) client.setMotion(-edgingMotion, motion.y, motion.z);
+        }
+        if ((towerSimpleX > towerFirstX || towerSimpleX < towerFirstX) && ++towerDelay == towerAlignTicks) {
+            towerEdge = true;
+        }
+    }
+    if (!verticalTowerConditions() || jumpLvl() != 0) {
+        towerStage = towerDelay = 0;
+        towerEdge = towerOver = towerUnder = towerGroundCheck = false;
+        if (!keybinds.isPressed("jump")) modules.setButton("Scaffold", "Delay on jump", true);
+        return;
+    }
+    if (towerAlignGround && !towerEdge) return;
+    modules.setButton("Scaffold", "Delay on jump", false);
+    
+    if ((towerEdge && towerUnder) || (!towerEdge && towerOver)) state.yaw = 90;
+    if ((towerEdge && towerOver) || (!towerEdge && towerUnder)) state.yaw = 270;
+    state.pitch = towerEdge ? 88 : 83;
+    if (towerDisableHurt && towerDamage) return;
+    if (towerEdge) client.setSpeed(0);
+    int valY = (int) Math.round((state.y % 1) * 10000);
+    Vec3 motion = client.getMotion();
+    
+    if (valY == 0) {
+        if (towerEdge) client.setMotion(motion.x, 0.42f, motion.z);
+        else if (towerUnder) client.setMotion(edgingMotion, 0.42f, motion.z);
+        else if (towerOver) client.setMotion(-edgingMotion, 0.42f, motion.z);
+    } else if (valY > 4000 && valY < 4300) {
+        if (towerEdge) client.setMotion(motion.x, 0.33, motion.z);
+        else if (towerUnder) client.setMotion(edgingMotion, 0.33, motion.z);
+        else if (towerOver) client.setMotion(-edgingMotion, 0.33, motion.z);
+    } else if (valY > 7000) {
+        if (towerEdge) client.setMotion(motion.x, 1 - state.y % 1, motion.z);
+        else if (towerUnder) client.setMotion(edgingMotion, 1 - state.y % 1, motion.z);
+        else if (towerOver) client.setMotion(-edgingMotion, 1 - state.y % 1, motion.z);
+    }
+}
+
+void handleVerticalTowerPackets(CPacket packet) {
+    if (!towerAlignPlaceSecond || towerEdge) {
+        if (verticalTowerConditions()) {
+            if (packet instanceof C08) {
+                C08 c08 = (C08) packet;
+                if (c08.direction != 255) {
+                    Vec3 position = c08.position;
+                    position.y += 1;
+                    if (towerUnder) towerQueued = new C08(c08.itemStack, position, 5, new Vec3(0, 0.51424, 0.493123));
+                    if (towerOver) towerQueued = new C08(c08.itemStack, position, 4, new Vec3(0, 0.51424, 0.493123));
+                }
+            }
+        }
+    }
+}
+
+void handleVerticalTowerInput() {
+    if (verticalTowerConditions()) {
+        if (!towerDisableHurt || !towerDamage) {
+            client.setJump(false);
+        }
+    }
+}
+
+boolean verticalTowerConditions() {
+    return !bridge.has("serverTeleport") && modules.isEnabled("Scaffold") && keybinds.isKeyDown(57)
+           && !keybinds.isKeyDown(30) && !keybinds.isKeyDown(31) && !keybinds.isKeyDown(32)
+           && !keybinds.isKeyDown(17) && holding("blocks");
+}
+
+double speedLvl() {
+    for (Object[] effect : client.getPlayer().getPotionEffects()) {
+        String name = (String) effect[1];
+        int amplifier = (int) effect[2];
+        if (name.equals("potion.moveSpeed")) {
+            return amplifier;
+        }
+        return 0;
+    }
+    return 0;
+}
+double jumpLvl() {
+    for (Object[] effect : client.getPlayer().getPotionEffects()) {
+        String pot = (String) effect[1];
+        double amplifier = ((Number) effect[2]).doubleValue();
+        if (pot.contains("jump")) {
+            return amplifier + 1;
+        }
+    }
+    return 0;
+}
+
+void getGameMode() {
+    if (checkMode && !scoreboard && world.getScoreboard() != null) scoreboard = true;
+    if (scoreboard && ++checkModeTicks == 45 && client.getServerIP().toLowerCase().contains("hypixel.net")) {
+        client.chat("/locraw");
+    }
+}
+
+boolean parseGameMode(String msg) {
+    checkMode = false;
+    try {
+        if (!msg.contains("REPLAY") && !msg.equals("{\"server\":\"limbo\"}"))
+            gameMode = msg.split("mode\":\"")[1].split("\"")[0];
+    } catch (Exception e) {
+    }
+    return false;
 }
