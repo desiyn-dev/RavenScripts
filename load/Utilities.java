@@ -114,7 +114,7 @@ void registerModules() {
     
     modules.registerDescription("> KillAura");
     modules.registerButton("Enable Aura Hitlog", true);
-    modules.registerButton("Legit autoblock", false);
+    modules.registerButton(util.color("Legit autoblock &c(PATCHED)"), false);
     
     modules.registerDescription("> Scaffold");
     modules.registerButton("Vertical tower", false);
@@ -153,7 +153,7 @@ void onPreUpdate() {
     if (modules.getButton(scriptName, "AntiDebuff")) {
         antiDebuff();
     }
-    if (modules.getButton(scriptName, "Legit autoblock")) {
+    if (modules.getButton(scriptName, util.color("Legit autoblock &c(PATCHED)"))) {
         legitAB();
     }
     if (modules.getButton(scriptName, "Theme sync")) {
@@ -689,7 +689,7 @@ boolean onPacketSent(CPacket packet) {
         }
     }
     
-    if (modules.getButton(scriptName, "Legit autoblock")) {
+    if (modules.getButton(scriptName, util.color("Legit autoblock &c(PATCHED)"))) {
         if (abConditions() && (packet instanceof C02 || packet instanceof C0A || packet instanceof C08 || packet instanceof C07)) return false;
     }
 
